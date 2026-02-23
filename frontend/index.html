@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>CricLive — Live Scores</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: #0f1620;
+    --surface2: #161e2e;
+    --border: #1e2d42;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --green: #00e676;
+    --red: #ff4444;
+    --gold: #ffd600;
+    --text: #e8f0fe;
+    --muted: #5a7a9a;
+  }
+  body.light {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --surface2: #e8edf2;
+    --border: #d0d9e4;
+    --accent: #0077cc;
+    --accent2: #e05a1e;
+    --green: #1a9e4a;
+    --red: #d32f2f;
+    --gold: #c8930a;
+    --text: #0d1b2a;
+    --muted: #6b7f99;
+  }
+  body.light .topbar {
+    background: rgba(240,244,248,0.95);
+  }
+  body.light .ticker-wrap {
+    background: #e2e8f0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(8,12,20,0.95); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; height: 56px;
+  }
+  .logo-wrap {
+    display: flex; align-items: center; gap: 9px; cursor: pointer; text-decoration: none;
+  }
+  .logo-text {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; font-weight: 800;
+    letter-spacing: -0.5px; line-height: 1;
+  }
+  .logo-cric {
+    background: linear-gradient(135deg, #e8f0fe, #a8c4e0);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .logo-live {
+    background: linear-gradient(135deg, #ff6b6b, #e63946);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  body.light .logo-cric {
+    background: linear-gradient(135deg, #0d1b2a, #1a3a5c);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  body.light .logo-live {
+    background: linear-gradient(135deg, #e63946, #c1121f);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; color: var(--muted);
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.live { background: var(--green); animation: pulse 1.4s infinite; }
+  .status-dot.error { background: var(--red); }
+  .refresh-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    padding: 7px 14px; border-radius: 8px; font-family: 'DM Sans', sans-serif;
+    font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--text); }
+  .refresh-btn.spinning .icon { display: inline-block; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+  .theme-toggle {
+    background: var(--surface2); border: 1px solid var(--border);
+    width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; flex-shrink: 0;
+  }
+  .theme-toggle:hover { border-color: var(--accent); transform: scale(1.05); }
+
+  /* TICKER */
+  .ticker-wrap { background: #0a1220; border-bottom: 1px solid var(--border); padding: 7px 0; overflow: hidden; white-space: nowrap; min-height: 34px; }
+  .ticker-inner { display: inline-flex; gap: 48px; }
+  .ticker-inner.animate { animation: ticker 35s linear infinite; }
+  .ticker-item { display: inline-flex; align-items: center; gap: 10px; font-size: 12px; flex-shrink: 0; }
+  .ticker-teams { font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 13px; }
+  .ticker-score { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); font-weight: 600; }
+  .ticker-info { color: var(--muted); font-size: 11px; }
+  .live-dot-sm { width: 6px; height: 6px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; flex-shrink: 0; }
+  @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; padding: 14px 16px 0; max-width: 780px; margin: 0 auto; }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    padding: 8px 16px 10px; cursor: pointer; transition: all 0.2s;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .tab-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); border-radius: 10px;
+    font-size: 10px; font-weight: 700; padding: 1px 7px; margin-left: 5px;
+  }
+  .tab.active .tab-count { background: rgba(0,212,255,0.1); border-color: rgba(0,212,255,0.2); color: var(--accent); }
+
+  /* FILTER BAR */
+  .filter-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px 0; max-width: 780px; margin: 0 auto; flex-wrap: wrap; }
+  .filter-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+  .filter-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    padding: 5px 14px; border-radius: 20px; cursor: pointer; transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+  body.light .filter-btn.active { color: #fff; }
+
+  /* CONTENT */
+  .page { max-width: 780px; margin: 0 auto; padding: 16px; }
+
+  /* SKELETON */
+  .skeleton { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 10px; }
+  .sk-line { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; margin-bottom: 10px; }
+  .sk-line.w60{width:60%} .sk-line.w80{width:80%} .sk-line.w40{width:40%}
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  /* ERROR / EMPTY */
+  .error-box { background: rgba(255,68,68,0.07); border: 1px solid rgba(255,68,68,0.2); border-radius: 12px; padding: 24px; text-align: center; margin: 20px 0; }
+  .error-box h3 { color: var(--red); font-size: 16px; margin-bottom: 8px; }
+  .error-box p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+  .retry-btn { margin-top: 14px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 20px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; }
+  .retry-btn:hover { border-color: var(--accent); }
+  .empty-box { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-box .emoji { font-size: 40px; margin-bottom: 12px; }
+  .empty-box p { font-size: 14px; }
+
+  /* MATCH CARD */
+  .match-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 10px; overflow: hidden;
+    cursor: pointer; transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  }
+  .match-card:hover { border-color: rgba(0,212,255,0.35); transform: translateY(-1px); box-shadow: 0 4px 24px rgba(0,212,255,0.06); }
+  .match-card.is-live   { border-left: 3px solid var(--red); }
+  .match-card.is-complete { border-left: 3px solid var(--green); }
+  .match-card.is-upcoming { border-left: 3px solid var(--muted); }
+
+  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 0; gap: 8px; }
+  .card-series { font-size: 11px; color: var(--muted); font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .live-badge     { display: flex; align-items: center; gap: 5px; background: rgba(255,68,68,0.1); border: 1px solid rgba(255,68,68,0.3); color: var(--red); font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.8px; flex-shrink: 0; }
+  .complete-badge { background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.2); color: var(--green); font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; flex-shrink: 0; }
+  .upcoming-badge { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 4px; flex-shrink: 0; }
+
+  .card-body { padding: 10px 14px; }
+  .team-row { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+  .team-flag { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--surface2); border: 1px solid var(--border); }
+  .team-flag-emoji { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+  .team-name { font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 16px; flex: 1; }
+  .team-name.dim { color: var(--muted); }
+  .team-score-block { text-align: right; min-width: 90px; }
+  .team-score { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 17px; }
+  .team-score.dim { color: var(--muted); font-size: 14px; }
+  .team-score.winner { color: var(--green); }
+  .team-overs { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  .card-footer { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px 10px; border-top: 1px solid var(--border); margin-top: 4px; gap: 8px; }
+  .card-status { font-size: 12px; color: var(--muted); flex: 1; }
+  .card-status.result { color: var(--green); }
+  .match-type-pill { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; flex-shrink: 0; text-transform: uppercase; }
+
+  /* SECTION HEAD */
+  .section-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 12px; }
+  .section-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; display: block; width: 3px; height: 16px; background: var(--accent); border-radius: 2px; }
+  .last-updated { font-size: 11px; color: var(--muted); }
+
+  /* QUOTA BAR */
+  .quota-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; font-size: 12px; }
+  .quota-label { color: var(--muted); flex: 1; }
+  .quota-track { flex: 2; height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .quota-fill { height: 100%; border-radius: 4px; background: var(--green); transition: width 0.4s; }
+  .quota-fill.warn { background: var(--gold); }
+  .quota-fill.danger { background: var(--red); }
+  .quota-num { font-family: 'JetBrains Mono', monospace; color: var(--text); font-size: 11px; }
+
+  .api-footer { text-align: center; padding: 24px 16px 32px; font-size: 11px; color: var(--muted); }
+  .api-footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .topbar { padding: 0 14px; }
+    .status-pill span { display: none; }
+    .page { padding: 12px 10px; }
+    .team-name { font-size: 17px; }
+    .team-score { font-size: 15px; }
+  }
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo-wrap">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+      <circle cx="14" cy="14" r="13" fill="url(#ball-grad)" stroke="url(#ball-stroke)" stroke-width="1"/>
+      <path d="M14 2 Q18 8 18 14 Q18 20 14 26 Q10 20 10 14 Q10 8 14 2Z" fill="rgba(255,255,255,0.15)"/>
+      <path d="M3 10 Q10 11 14 14 Q18 17 25 18" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      <path d="M3 18 Q10 17 14 14 Q18 11 25 10" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      <defs>
+        <linearGradient id="ball-grad" x1="0" y1="0" x2="28" y2="28">
+          <stop offset="0%" stop-color="#e63946"/>
+          <stop offset="100%" stop-color="#c1121f"/>
+        </linearGradient>
+        <linearGradient id="ball-stroke" x1="0" y1="0" x2="28" y2="28">
+          <stop offset="0%" stop-color="#ff6b6b"/>
+          <stop offset="100%" stop-color="#a00"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <div class="logo-text">
+      <span class="logo-cric">Cric</span><span class="logo-live">Live</span>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Connecting...</span>
+  </div>
+  <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">
+    <span class="icon">↻</span> Refresh
+  </button>
+  <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+    <span id="theme-icon">☀️</span>
+  </button>
+</header>
+
+<div class="ticker-wrap">
+  <div class="ticker-inner" id="ticker-inner">
+    <div class="ticker-item" style="padding:0 20px;color:var(--muted);font-size:12px">Loading scores...</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('live',this)">🔴 Live <span class="tab-count" id="live-count">—</span></button>
+  <button class="tab" onclick="switchTab('complete',this)">✅ Results</button>
+  <button class="tab" onclick="switchTab('upcoming',this)">⏰ Upcoming</button>
+</div>
+
+<div class="filter-bar">
+  <span class="filter-label">Type:</span>
+  <button class="filter-btn active" onclick="setFilter('type','all', this)">All</button>
+  <button class="filter-btn" onclick="setFilter('type','international', this)">🌍 International</button>
+  <button class="filter-btn" onclick="setFilter('type','domestic', this)">🏠 Domestic</button>
+</div>
+<div class="filter-bar" style="padding-top:6px">
+  <span class="filter-label">Gender:</span>
+  <button class="filter-btn active" onclick="setFilter('gender','all', this)">All</button>
+  <button class="filter-btn" onclick="setFilter('gender','mens', this)">👨 Men's</button>
+  <button class="filter-btn" onclick="setFilter('gender','womens', this)">👩 Women's</button>
+</div>
+
+<div class="page">
+  <div id="quota-area"></div>
+  <div id="content">
+    <div class="skeleton"><div class="sk-line w60"></div><div class="sk-line w80"></div><div class="sk-line w40"></div></div>
+    <div class="skeleton"><div class="sk-line w80"></div><div class="sk-line w60"></div><div class="sk-line w40"></div></div>
+    <div class="skeleton"><div class="sk-line w40"></div><div class="sk-line w80"></div><div class="sk-line w60"></div></div>
+  </div>
+</div>
+
+<div class="api-footer">Powered by <a href="https://cricketdata.org" target="_blank">CricketData.org</a> · Use Refresh to update scores</div>
+
+<script>
+// ── API CONFIG ────────────────────────────────────────────────────────────
+// Set API_BASE to your backend URL once deployed, e.g.:
+//   https://criclive-api.onrender.com
+// Leave as 'direct' to call CricketData.org directly (uses your daily quota)
+const API_BASE    = window.CRICLIVE_API_BASE || 'direct';
+const API_KEY     = '259964ff-cd30-491d-8186-6f443e229c70';
+const DIRECT_BASE = 'https://api.cricapi.com/v1';
+const PROXIES_    = ['https://corsproxy.io/?', 'https://api.allorigins.win/raw?url='];
+const PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+];
+
+let allMatches = [];
+let currentTab = 'live';
+let filterType   = 'all';  // all | international | domestic
+let filterGender = 'all';  // all | mens | womens
+let lastUpdated = null;
+let quotaInfo = null;
+
+// ── INTERNATIONAL KEYWORDS ─────────────────────────────────────────────────
+// These keywords in series names indicate international matches
+const INTERNATIONAL_KEYWORDS = [
+  'icc', 'world cup', 'champions trophy', 'asia cup', 't20i', 'odi',
+  'test match', 'tour of', 'series', 'tri-series', 'bilateral',
+  'women tour', 'men tour', 'cricket world',
+];
+const DOMESTIC_KEYWORDS = [
+  // Domestic leagues
+  'ipl', 'bbl', 'psl', 'cpl', 'sa20', 'lpl', 'the hundred', 'vitality blast',
+  'super smash', 'ram slam', 'big bash',
+  // Domestic tournaments
+  'ranji', 'sheffield shield', 'plunket shield', 'county championship',
+  'vijay hazare', 'syed mushtaq', 'duleep trophy', 'deodhar trophy',
+  'one-day cup', 'four-day', 'provincial', 'domestic',
+  // A-teams / emerging / academy
+  ' a vs ', 'emerging players', 'rising stars', 'cricket academy',
+  // Specific phrases that only appear in domestic
+  'inter-provincial', 'inter-state', 'ncl ', 'nca ',
+];
+
+function matchGender(m) {
+  const name  = (m.name  || '').toLowerCase();
+  const teams = (m.teams || []).map(t => t.toLowerCase()).join(' ');
+  if (name.includes('women') || teams.includes('women')) return 'womens';
+  return 'mens';
+}
+
+function matchCategory(m) {
+  const name = (m.name || '').toLowerCase();
+  const series = (m.series_id || '').toLowerCase();
+
+  // International teams playing each other = international
+  const INTL_TEAMS = [
+    'india','australia','england','pakistan','south africa','new zealand',
+    'west indies','sri lanka','bangladesh','afghanistan','zimbabwe','ireland',
+    'netherlands','scotland','kenya','namibia','oman','united arab emirates',
+    'canada','usa','nepal','italy','papua new guinea','hong kong','singapore',
+  ];
+  const teams = (m.teams || []).map(t => t.toLowerCase());
+
+  // If both teams are full international sides (not A teams, not women's A)
+  const bothIntl = teams.length === 2 &&
+    INTL_TEAMS.some(t => teams[0].includes(t) && !teams[0].includes(' a') && !teams[0].includes('emerging')) &&
+    INTL_TEAMS.some(t => teams[1].includes(t) && !teams[1].includes(' a') && !teams[1].includes('emerging'));
+
+  // Check name for domestic keywords first (more specific)
+  if (DOMESTIC_KEYWORDS.some(k => name.includes(k))) return 'domestic';
+
+  // Then international signals
+  if (bothIntl) return 'international';
+  if (INTERNATIONAL_KEYWORDS.some(k => name.includes(k))) return 'international';
+
+  // Fallback: if team names suggest A-teams, U19, emerging = domestic
+  if (teams.some(t => / a$/.test(t) || t.includes(' u19') || t.includes('emerging') || t.includes('lions'))) return 'domestic';
+
+  return 'domestic'; // safe default
+}
+
+// ── FETCH ──────────────────────────────────────────────────────────────────
+async function apiFetch(url) {
+  // Try direct first (works on localhost)
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.status === 'success') return json;
+    }
+  } catch (e) { /* CORS – try proxies */ }
+
+  // Try each proxy
+  for (const proxy of PROXIES_) {
+    try {
+      const res = await fetch(proxy + encodeURIComponent(url));
+      if (!res.ok) continue;
+      const json = await res.json();
+      if (json.status === 'success') return json;
+    } catch (e) { continue; }
+  }
+  return null;
+}
+
+async function fetchMatches() {
+  // Use backend if configured, otherwise fall back to direct API
+  if (API_BASE !== 'direct') {
+    const res = await fetch(`${API_BASE}/api/matches`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.status === 'success') return json.data || [];
+    }
+    throw new Error('Backend unavailable. Check that your backend server is running.');
+  }
+
+  // Direct mode — calls CricketData.org (uses your quota)
+  const currentUrl  = `${DIRECT_BASE}/currentMatches?apikey=${API_KEY}&offset=0`;
+  const upcomingUrl = `${DIRECT_BASE}/matches?apikey=${API_KEY}&offset=0`;
+
+  const [currentResp, upcomingResp] = await Promise.allSettled([
+    apiFetch(currentUrl),
+    apiFetch(upcomingUrl),
+  ]);
+
+  const currentData  = currentResp.status  === 'fulfilled' && currentResp.value  ? currentResp.value.data  || [] : [];
+  const upcomingData = upcomingResp.status === 'fulfilled' && upcomingResp.value ? upcomingResp.value.data || [] : [];
+
+  // Save quota from currentMatches response
+  if (currentResp.status === 'fulfilled' && currentResp.value?.info) {
+    quotaInfo = currentResp.value.info;
+  }
+
+  if (!currentData.length && !upcomingData.length) {
+    throw new Error('Could not reach the API. Check your connection and try again.');
+  }
+
+  // Merge: deduplicate by id, currentMatches takes priority
+  const seen = new Set();
+  const merged = [];
+  for (const m of [...currentData, ...upcomingData]) {
+    if (!seen.has(m.id)) {
+      seen.add(m.id);
+      merged.push(m);
+    }
+  }
+  return merged;
+}
+
+// ── CLASSIFY ───────────────────────────────────────────────────────────────
+// Based on real API response: matchStarted=true + matchEnded=true = completed
+// matchStarted=true + matchEnded=false = live
+// matchStarted=false = upcoming
+function classify(m) {
+  const started = m.matchStarted === true;
+  const ended   = m.matchEnded   === true;
+  if (started && !ended) return 'live';
+  if (ended)             return 'complete';
+  return 'upcoming';
+}
+
+// ── SCORE HELPERS ──────────────────────────────────────────────────────────
+// API score[] uses inning names like "England Lions Inning 1", "Pakistan A Inning 1"
+// We match by checking if inning name starts with or contains the team name
+function getScoresForTeam(m, teamName) {
+  if (!m.score || !m.score.length) return [];
+  const t = teamName.toLowerCase().trim();
+  return m.score.filter(s => {
+    if (!s.inning) return false;
+    const inn = s.inning.toLowerCase();
+    // The inning name starts with team name OR the team name words all appear at start
+    return inn.startsWith(t) || inn.replace(/,.*/, '').trim().startsWith(t.split(' ')[0]);
+  });
+}
+
+function fmtScore(s) {
+  if (!s) return null;
+  const w = s.w !== undefined ? `/${s.w}` : '';
+  const o = s.o !== undefined ? ` (${s.o})` : '';
+  return `${s.r}${w}${o}`;
+}
+
+// Get best display score for a team (last innings)
+function teamDisplayScore(m, teamName) {
+  const scores = getScoresForTeam(m, teamName);
+  if (!scores.length) return null;
+  return scores[scores.length - 1];
+}
+
+// ── TEAM HELPERS ───────────────────────────────────────────────────────────
+function teamShortname(m, teamName) {
+  // Use shortname from teamInfo if available
+  if (m.teamInfo) {
+    const info = m.teamInfo.find(t => t.name === teamName);
+    if (info && info.shortname) return info.shortname;
+  }
+  // Fallback: abbreviate
+  const known = {
+    'india':'IND','australia':'AUS','england':'ENG','pakistan':'PAK',
+    'south africa':'SA','new zealand':'NZ','west indies':'WI','sri lanka':'SL',
+    'bangladesh':'BAN','afghanistan':'AFG','zimbabwe':'ZIM','ireland':'IRE',
+    'netherlands':'NED','scotland':'SCO','kenya':'KEN','namibia':'NAM',
+    'oman':'OMAN','united arab emirates':'UAE','papua new guinea':'PNG',
+    'italy':'ITA','canada':'CAN',
+  };
+  const lower = (teamName || '').toLowerCase();
+  for (const [k,v] of Object.entries(known)) {
+    if (lower.includes(k)) return v;
+  }
+  return teamName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,5);
+}
+
+function teamImg(m, teamName) {
+  if (m.teamInfo) {
+    const info = m.teamInfo.find(t => t.name === teamName);
+    if (info && info.img) return info.img;
+  }
+  return null;
+}
+
+function teamFlagEl(m, teamName) {
+  const img = teamImg(m, teamName);
+  if (img) return `<img class="team-flag" src="${img}" alt="${esc(teamName)}" onerror="this.style.display='none'">`;
+  // Emoji fallback
+  const flags = {
+    'india':'🇮🇳','australia':'🇦🇺','england':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','pakistan':'🇵🇰',
+    'south africa':'🇿🇦','new zealand':'🇳🇿','west indies':'🌴','sri lanka':'🇱🇰',
+    'bangladesh':'🇧🇩','afghanistan':'🇦🇫','zimbabwe':'🇿🇼','ireland':'🇮🇪',
+    'netherlands':'🇳🇱','scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','oman':'🇴🇲','uae':'🇦🇪',
+    'italy':'🇮🇹','canada':'🇨🇦','west indies women':'🌴',
+  };
+  const lower = (teamName||'').toLowerCase();
+  for (const [k,v] of Object.entries(flags)) {
+    if (lower.includes(k)) return `<span class="team-flag-emoji">${v}</span>`;
+  }
+  return `<span class="team-flag-emoji">🏏</span>`;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── RENDER CARD ────────────────────────────────────────────────────────────
+function renderCard(m) {
+  const type = classify(m);
+  const t1   = m.teams?.[0] || 'Team A';
+  const t2   = m.teams?.[1] || 'Team B';
+  const sn1  = teamShortname(m, t1);
+  const sn2  = teamShortname(m, t2);
+  const sc1  = teamDisplayScore(m, t1);
+  const sc2  = teamDisplayScore(m, t2);
+  const f1   = fmtScore(sc1);
+  const f2   = fmtScore(sc2);
+  const isLive     = type === 'live';
+  const isComplete = type === 'complete';
+
+  // Badge
+  let badge = '';
+  if (isLive)       badge = `<div class="live-badge"><div class="live-dot-sm"></div>LIVE</div>`;
+  else if (isComplete) badge = `<div class="complete-badge">RESULT</div>`;
+  else              badge = `<div class="upcoming-badge">${fmtDate(m.dateTimeGMT)}</div>`;
+
+  // Determine winner team from status string
+  const statusLower = (m.status || '').toLowerCase();
+  const t1wins = isComplete && statusLower.includes(t1.toLowerCase().split(' ')[0].toLowerCase()) && statusLower.includes('won');
+  const t2wins = isComplete && statusLower.includes(t2.toLowerCase().split(' ')[0].toLowerCase()) && statusLower.includes('won');
+
+  const score1html = f1
+    ? `<div class="team-score ${t1wins?'winner':''}">${esc(f1)}</div>`
+    : `<div class="team-score dim">${isComplete?'—':'TBD'}</div>`;
+
+  const score2html = f2
+    ? `<div class="team-score ${t2wins?'winner':''}">${esc(f2)}</div>`
+    : `<div class="team-score dim">${isComplete?'—':'TBD'}</div>`;
+
+  const statusText = m.status || '';
+  const isResultStatus = isComplete && (statusLower.includes('won') || statusLower.includes('no result') || statusLower.includes('abandoned'));
+  const matchTypeLabel = (m.matchType || '').toUpperCase();
+
+  return `
+    <div class="match-card is-${type} fade-in" onclick="openMatch('${esc(m.id)}')">
+      <div class="card-header">
+        <div class="card-series" title="${esc(m.name)}">${esc(m.name || '')}</div>
+        ${badge}
+      </div>
+      <div class="card-body">
+        <div class="team-row">
+          ${teamFlagEl(m, t1)}
+          <div class="team-name">${esc(sn1)}</div>
+          <div class="team-score-block">${score1html}</div>
+        </div>
+        <div class="team-row">
+          ${teamFlagEl(m, t2)}
+          <div class="team-name">${esc(sn2)}</div>
+          <div class="team-score-block">${score2html}</div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <div class="card-status ${isResultStatus?'result':''}">${esc(statusText)}</div>
+        ${matchTypeLabel ? `<div class="match-type-pill">${esc(matchTypeLabel)}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ── DATE FORMAT ────────────────────────────────────────────────────────────
+function fmtDate(dtStr) {
+  if (!dtStr) return 'Upcoming';
+  try {
+    const d = new Date(dtStr + (dtStr.includes('Z') ? '' : 'Z'));
+    return d.toLocaleDateString('en-IN', {
+      month:'short', day:'numeric', hour:'2-digit', minute:'2-digit',
+      timeZone:'Asia/Kolkata'
+    }) + ' IST';
+  } catch { return dtStr; }
+}
+
+// ── QUOTA BAR ──────────────────────────────────────────────────────────────
+function renderQuota() {
+  if (!quotaInfo) return;
+  const { hitsToday, hitsLimit } = quotaInfo;
+  const pct = Math.min(100, Math.round((hitsToday / hitsLimit) * 100));
+  const fillClass = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : '';
+  document.getElementById('quota-area').innerHTML = `
+    <div class="quota-bar">
+      <div class="quota-label">API quota today</div>
+      <div class="quota-track"><div class="quota-fill ${fillClass}" style="width:${pct}%"></div></div>
+      <div class="quota-num">${hitsToday} / ${hitsLimit}</div>
+    </div>`;
+}
+
+// ── TICKER ─────────────────────────────────────────────────────────────────
+function buildTicker(matches) {
+  const ticker = document.getElementById('ticker-inner');
+  const live = matches.filter(m => classify(m) === 'live');
+  const show = live.length ? live : matches.slice(0, 8); // fallback: recent results
+
+  if (!show.length) {
+    ticker.innerHTML = `<div class="ticker-item" style="padding:0 20px;color:var(--muted);font-size:12px">No matches available right now 🏏</div>`;
+    ticker.classList.remove('animate');
+    return;
+  }
+
+  const items = show.map(m => {
+    const t1 = m.teams?.[0] || '?';
+    const t2 = m.teams?.[1] || '?';
+    const sn1 = teamShortname(m, t1);
+    const sn2 = teamShortname(m, t2);
+    const sc1 = teamDisplayScore(m, t1);
+    const sc2 = teamDisplayScore(m, t2);
+    const scoreStr = [fmtScore(sc1), fmtScore(sc2)].filter(Boolean).join(' | ') || '—';
+    const isLive = classify(m) === 'live';
+    return `<div class="ticker-item">
+      ${isLive ? '<div class="live-dot-sm"></div>' : ''}
+      <span class="ticker-teams">${esc(sn1)} vs ${esc(sn2)}</span>
+      <span class="ticker-score">${esc(scoreStr)}</span>
+      <span class="ticker-info">${esc((m.matchType||'').toUpperCase())}</span>
+    </div>`;
+  }).join('');
+
+  ticker.innerHTML = items + items; // duplicate for seamless loop
+  ticker.classList.add('animate');
+}
+
+// ── RENDER TAB ─────────────────────────────────────────────────────────────
+function renderTab(tab) {
+  const el = document.getElementById('content');
+  const filtered = filteredMatches(tab);
+  const labels = { live: 'Live Matches', complete: 'Recent Results', upcoming: 'Upcoming Matches' };
+  const emojis = { live: '😴', complete: '📋', upcoming: '📅' };
+  const updated = lastUpdated ? `<div class="last-updated">Updated ${lastUpdated}</div>` : '';
+
+  if (!filtered.length) {
+    el.innerHTML = `
+      <div class="section-head"><div class="section-title">${labels[tab]}</div>${updated}</div>
+      <div class="empty-box">
+        <div class="emoji">${emojis[tab]}</div>
+        <p>No ${labels[tab].toLowerCase()} right now.</p>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="section-head"><div class="section-title">${labels[tab]}</div>${updated}</div>
+    ${filtered.map(renderCard).join('')}`;
+}
+
+// ── TAB SWITCH ─────────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTab(tab);
+}
+
+// ── MATCH LINK ─────────────────────────────────────────────────────────────
+function openMatch(id) {
+  window.location.href = `match.html?id=${id}`;
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────
+function setFilter(dimension, value, btn) {
+  if (dimension === 'type')   filterType   = value;
+  if (dimension === 'gender') filterGender = value;
+  // Only deactivate buttons in the same filter row
+  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTab(currentTab);
+  updateTabCounts();
+}
+
+function filteredMatches(tab) {
+  return allMatches.filter(m => {
+    if (classify(m) !== tab) return false;
+    if (filterType   !== 'all' && matchCategory(m) !== filterType)   return false;
+    if (filterGender !== 'all' && matchGender(m)   !== filterGender) return false;
+    return true;
+  });
+}
+
+function updateTabCounts() {
+  const lc = filteredMatches('live').length;
+  const el = document.getElementById('live-count');
+  if (el) {
+    el.textContent = lc;
+    el.style.display = lc > 0 ? '' : 'none';
+  }
+}
+
+// ── THEME TOGGLE ──────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('theme-icon').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('criclive-theme', isLight ? 'light' : 'dark');
+}
+
+// Apply saved theme on load
+(function() {
+  const saved = localStorage.getItem('criclive-theme');
+  if (saved === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const icon = document.getElementById('theme-icon');
+      if (icon) icon.textContent = '🌙';
+    });
+  }
+})();
+
+// ── LOAD ───────────────────────────────────────────────────────────────────
+async function loadAll() {
+  const btn      = document.getElementById('refresh-btn');
+  const dot      = document.getElementById('status-dot');
+  const statusEl = document.getElementById('status-text');
+
+  btn.classList.add('spinning');
+  dot.className = 'status-dot';
+  statusEl.textContent = 'Fetching...';
+
+  try {
+    allMatches  = await fetchMatches();
+    lastUpdated = new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+
+    const lc = allMatches.filter(m => classify(m) === 'live').length;
+    const cc = allMatches.filter(m => classify(m) === 'complete').length;
+    const uc = allMatches.filter(m => classify(m) === 'upcoming').length;
+
+    // Default to results tab if no live matches
+    if (currentTab === 'live' && lc === 0 && cc > 0) {
+      currentTab = 'complete';
+      document.querySelectorAll('.tab').forEach((b,i) => b.classList.toggle('active', i===1));
+    }
+
+    updateTabCounts();
+
+    renderQuota();
+    buildTicker(allMatches);
+    renderTab(currentTab);
+
+    // Only show status pill when there are live matches
+    const pill = document.querySelector('.status-pill');
+    if (lc > 0) {
+      pill.style.display = '';
+      dot.classList.add('live');
+      statusEl.textContent = `${lc} live now`;
+    } else {
+      pill.style.display = 'none';
+    }
+
+  } catch (err) {
+    dot.className = 'status-dot error';
+    statusEl.textContent = 'Error';
+    document.getElementById('content').innerHTML = `
+      <div class="error-box">
+        <h3>⚠️ Could not load scores</h3>
+        <p>${esc(err.message)}</p>
+        <button class="retry-btn" onclick="loadAll()">Try Again</button>
+      </div>`;
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+// Pause ticker on hover
+document.getElementById('ticker-inner').addEventListener('mouseenter', () => {
+  document.getElementById('ticker-inner').style.animationPlayState = 'paused';
+});
+document.getElementById('ticker-inner').addEventListener('mouseleave', () => {
+  document.getElementById('ticker-inner').style.animationPlayState = 'running';
+});
+
+loadAll();
+</script>
+</body>
+</html>

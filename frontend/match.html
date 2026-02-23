@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Match — CricLive</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: #0f1620;
+    --surface2: #161e2e;
+    --border: #1e2d42;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --green: #00e676;
+    --red: #ff4444;
+    --gold: #ffd600;
+    --text: #e8f0fe;
+    --muted: #5a7a9a;
+  }
+  body.light {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --surface2: #e8edf2;
+    --border: #d0d9e4;
+    --accent: #0077cc;
+    --accent2: #e05a1e;
+    --green: #1a9e4a;
+    --red: #d32f2f;
+    --gold: #c8930a;
+    --text: #0d1b2a;
+    --muted: #6b7f99;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(8,12,20,0.96); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 20px; height: 56px;
+  }
+  body.light .topbar { background: rgba(240,244,248,0.96); }
+  .back-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; padding: 6px 12px; border-radius: 8px;
+    cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--text); }
+  .logo-wrap { display: flex; align-items: center; gap: 9px; cursor: pointer; text-decoration: none; }
+  .logo-text { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+  .logo-cric { background: linear-gradient(135deg, #e8f0fe, #a8c4e0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .logo-live { background: linear-gradient(135deg, #ff6b6b, #e63946); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  body.light .logo-cric { background: linear-gradient(135deg, #0d1b2a, #1a3a5c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  body.light .logo-live { background: linear-gradient(135deg, #e63946, #c1121f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .topbar-title { flex: 1; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .theme-toggle {
+    background: var(--surface2); border: 1px solid var(--border);
+    width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; flex-shrink: 0;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(180deg, var(--surface2) 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 20px 20px;
+  }
+  .hero-inner { max-width: 780px; margin: 0 auto; }
+  .hero-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .hero-series { font-size: 12px; color: var(--muted); }
+  .hero-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
+  .live-pill { display: flex; align-items: center; gap: 5px; background: rgba(255,68,68,0.12); border: 1px solid rgba(255,68,68,0.3); color: var(--red); font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; letter-spacing: 0.8px; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; }
+  .result-pill { background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.2); color: var(--green); font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+  .upcoming-pill { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-size: 10px; font-weight: 500; padding: 3px 9px; border-radius: 20px; }
+
+  .teams-row { display: flex; align-items: center; gap: 16px; }
+  .team-block { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .team-block.right { align-items: flex-end; }
+  .team-block.left  { align-items: flex-start; }
+  .team-logo { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: var(--surface2); border: 2px solid var(--border); }
+  .team-logo-placeholder { width: 52px; height: 52px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .team-full-name { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); text-align: center; }
+  .team-block.right .team-full-name { text-align: right; }
+  .team-block.left  .team-full-name { text-align: left; }
+  .team-innings-score { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 600; color: var(--text); }
+  .team-innings-score.winner { color: var(--green); }
+  .team-innings-score.loser  { color: var(--muted); font-size: 17px; }
+  .team-overs { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+  .vs-block { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+  .vs-text { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .hero-status {
+    margin-top: 18px; padding: 10px 16px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    font-size: 13px; color: var(--muted); text-align: center; line-height: 1.5;
+  }
+  .hero-status.result { color: var(--green); border-color: rgba(0,230,118,0.2); background: rgba(0,230,118,0.04); }
+  .hero-status.live   { color: var(--accent2); border-color: rgba(255,107,53,0.2); background: rgba(255,107,53,0.04); }
+
+  /* ── SCORECARD TABS ── */
+  .sc-tabs { display: flex; border-bottom: 1px solid var(--border); max-width: 780px; margin: 0 auto; padding: 0 20px; overflow-x: auto; }
+  .sc-tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    padding: 12px 16px; cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+  }
+  .sc-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .sc-tab:hover:not(.active) { color: var(--text); }
+
+  /* ── CONTENT ── */
+  .page { max-width: 780px; margin: 0 auto; padding: 16px 20px; }
+
+  /* ── SECTION CARD ── */
+  .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+  .section-card-head { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .section-card-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+  .section-card-sub { font-size: 11px; color: var(--muted); }
+
+  /* ── TABLE ── */
+  .sc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sc-table th { padding: 8px 12px; text-align: left; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .sc-table th.num { text-align: right; }
+  .sc-table td { padding: 10px 12px; border-bottom: 1px solid rgba(30,45,66,0.5); vertical-align: middle; }
+  body.light .sc-table td { border-bottom-color: rgba(208,217,228,0.5); }
+  .sc-table tr:last-child td { border-bottom: none; }
+  .sc-table tr:hover td { background: rgba(255,255,255,0.02); }
+  body.light .sc-table tr:hover td { background: rgba(0,0,0,0.02); }
+  .sc-table td.num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .sc-table td.bold-num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--text); }
+  .player-name { font-weight: 600; color: var(--text); }
+  .player-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .extras-row td { color: var(--muted); font-size: 12px; }
+  .total-row td { font-weight: 700; color: var(--text); border-top: 1px solid var(--border) !important; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── MATCH INFO ── */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .info-item { padding: 12px 16px; border-bottom: 1px solid rgba(30,45,66,0.4); display: flex; flex-direction: column; gap: 3px; }
+  body.light .info-item { border-bottom-color: rgba(208,217,228,0.5); }
+  .info-item:nth-child(odd) { border-right: 1px solid rgba(30,45,66,0.4); }
+  body.light .info-item:nth-child(odd) { border-right-color: rgba(208,217,228,0.5); }
+  .info-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .info-value { font-size: 13px; color: var(--text); font-weight: 500; }
+
+  /* ── LOADING / ERROR ── */
+  .skeleton { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 14px; }
+  .sk-line { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; margin-bottom: 10px; }
+  .sk-line.w30{width:30%}.sk-line.w50{width:50%}.sk-line.w70{width:70%}.sk-line.w90{width:90%}
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .error-box { background: rgba(255,68,68,0.07); border: 1px solid rgba(255,68,68,0.2); border-radius: 12px; padding: 24px; text-align: center; margin: 20px 0; }
+  .error-box h3 { color: var(--red); margin-bottom: 8px; }
+  .error-box p { color: var(--muted); font-size: 13px; }
+  .retry-btn { margin-top: 14px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 20px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; }
+  .retry-btn:hover { border-color: var(--accent); }
+  .no-data { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
+
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+  @media (max-width: 600px) {
+    .topbar { padding: 0 14px; gap: 8px; }
+    .topbar-title { display: none; }
+    .page { padding: 12px 10px; }
+    .hero { padding: 16px 14px; }
+    .team-innings-score { font-size: 18px; }
+    .info-grid { grid-template-columns: 1fr; }
+    .info-item:nth-child(odd) { border-right: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="back-btn" href="index.html" id="back-link">← Back</a>
+  <a class="logo-wrap" href="index.html">
+    <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="14" r="13" fill="url(#bg2)" stroke="url(#bs2)" stroke-width="1"/>
+      <path d="M14 2 Q18 8 18 14 Q18 20 14 26 Q10 20 10 14 Q10 8 14 2Z" fill="rgba(255,255,255,0.15)"/>
+      <path d="M3 10 Q10 11 14 14 Q18 17 25 18" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      <path d="M3 18 Q10 17 14 14 Q18 11 25 10" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      <defs>
+        <linearGradient id="bg2" x1="0" y1="0" x2="28" y2="28"><stop offset="0%" stop-color="#e63946"/><stop offset="100%" stop-color="#c1121f"/></linearGradient>
+        <linearGradient id="bs2" x1="0" y1="0" x2="28" y2="28"><stop offset="0%" stop-color="#ff6b6b"/><stop offset="100%" stop-color="#a00"/></linearGradient>
+      </defs>
+    </svg>
+    <div class="logo-text"><span class="logo-cric">Cric</span><span class="logo-live">Live</span></div>
+  </a>
+  <div class="topbar-title" id="topbar-title">Loading match...</div>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"><span id="theme-icon">☀️</span></button>
+</header>
+
+<div id="hero-area">
+  <!-- Hero skeleton -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="sk-line w50" style="height:10px;margin-bottom:16px"></div>
+      <div style="display:flex;gap:16px;align-items:center">
+        <div style="flex:1"><div class="sk-line w70"></div><div class="sk-line w50"></div></div>
+        <div style="width:40px;flex-shrink:0"><div class="sk-line w90" style="height:24px"></div></div>
+        <div style="flex:1"><div class="sk-line w70"></div><div class="sk-line w50"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="sc-tabs-area"></div>
+
+<div class="page" id="content">
+  <div class="skeleton"><div class="sk-line w90"></div><div class="sk-line w70"></div><div class="sk-line w50"></div><div class="sk-line w90"></div><div class="sk-line w70"></div></div>
+  <div class="skeleton"><div class="sk-line w90"></div><div class="sk-line w50"></div><div class="sk-line w70"></div></div>
+</div>
+
+<script>
+// ── API CONFIG ────────────────────────────────────────────────────────────
+// When backend is running, set this to your backend URL
+// e.g. 'https://criclive-api.onrender.com'
+// Set to 'direct' to fall back to calling CricketData.org directly (uses your quota)
+const API_BASE   = window.CRICLIVE_API_BASE || 'direct';
+const API_KEY    = '259964ff-cd30-491d-8186-6f443e229c70';
+const DIRECT_BASE = 'https://api.cricapi.com/v1';
+const PROXIES    = ['https://corsproxy.io/?', 'https://api.allorigins.win/raw?url='];
+
+let matchData     = null;
+let scorecardData = null;
+let activeInning  = 0;
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function getMatchId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('id');
+}
+
+// ── THEME ──────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('theme-icon').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('criclive-theme', isLight ? 'light' : 'dark');
+}
+(function() {
+  if (localStorage.getItem('criclive-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const el = document.getElementById('theme-icon');
+      if (el) el.textContent = '🌙';
+    });
+  }
+})();
+
+// ── FETCH ──────────────────────────────────────────────────────────────────
+async function apiFetch(url) {
+  try {
+    const res = await fetch(url);
+    if (res.ok) { const j = await res.json(); if (j.status === 'success') return j; }
+  } catch(e) {}
+  for (const proxy of PROXIES) {
+    try {
+      const res = await fetch(proxy + encodeURIComponent(url));
+      if (!res.ok) continue;
+      const j = await res.json();
+      if (j.status === 'success') return j;
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+// Backend-aware fetch for scorecard/match info
+async function backendFetch(path) {
+  if (API_BASE !== 'direct') {
+    const res = await fetch(`${API_BASE}${path}`);
+    if (res.ok) return await res.json();
+    return null;
+  }
+  return null;
+}
+
+// ── CLASSIFY ──────────────────────────────────────────────────────────────
+function matchStatus(m) {
+  if (!m) return 'unknown';
+  if (m.matchStarted && !m.matchEnded) return 'live';
+  if (m.matchEnded) return 'complete';
+  return 'upcoming';
+}
+
+// ── HERO ──────────────────────────────────────────────────────────────────
+function renderHero(match, scorecard) {
+  const status = matchStatus(match);
+  const t1 = match.teams?.[0] || 'Team A';
+  const t2 = match.teams?.[1] || 'Team B';
+
+  function getImg(name) {
+    const info = (match.teamInfo || []).find(t => t.name === name);
+    return info?.img || null;
+  }
+  function logoEl(name) {
+    const img = getImg(name);
+    if (img) return `<img class="team-logo" src="${esc(img)}" alt="${esc(name)}" onerror="this.style.display='none'">`;
+    return `<div class="team-logo-placeholder">🏏</div>`;
+  }
+
+  // Innings scores from match.score
+  const scores = match.score || [];
+  function teamScores(teamName) {
+    return scores.filter(s => s.inning && s.inning.toLowerCase().startsWith(teamName.toLowerCase().split(' ')[0].toLowerCase()));
+  }
+  function fmtInnings(s) { return `${s.r}/${s.w} <span class="team-overs">(${s.o})</span>`; }
+
+  const s1arr = teamScores(t1);
+  const s2arr = teamScores(t2);
+
+  // Determine winner from status string
+  const stLower = (match.status||'').toLowerCase();
+  const t1wins = stLower.includes(t1.split(' ')[0].toLowerCase()) && stLower.includes('won');
+  const t2wins = stLower.includes(t2.split(' ')[0].toLowerCase()) && stLower.includes('won');
+
+  function scoresHtml(arr, wins) {
+    if (!arr.length) return `<div class="team-innings-score" style="color:var(--muted)">—</div>`;
+    return arr.map((s, i) => {
+      const cls = wins ? 'winner' : (arr.length > 1 && i < arr.length-1 ? 'loser' : '');
+      return `<div class="team-innings-score ${cls}">${fmtInnings(s)}</div>`;
+    }).join('');
+  }
+
+  let statusPill = '';
+  if (status === 'live')     statusPill = `<div class="live-pill"><div class="live-dot"></div>LIVE</div>`;
+  else if (status === 'complete') statusPill = `<div class="result-pill">RESULT</div>`;
+  else                       statusPill = `<div class="upcoming-pill">UPCOMING</div>`;
+
+  const heroStatusClass = status === 'complete' ? 'result' : status === 'live' ? 'live' : '';
+
+  document.getElementById('hero-area').innerHTML = `
+    <div class="hero fade-in">
+      <div class="hero-inner">
+        <div class="hero-meta">
+          <span class="hero-series">${esc(match.name || '')}</span>
+          <div class="hero-dot"></div>
+          ${statusPill}
+        </div>
+        <div class="teams-row">
+          <div class="team-block left">
+            ${logoEl(t1)}
+            <div class="team-full-name">${esc(t1)}</div>
+            ${scoresHtml(s1arr, t1wins)}
+          </div>
+          <div class="vs-block">
+            <div class="vs-text">vs</div>
+          </div>
+          <div class="team-block right">
+            ${logoEl(t2)}
+            <div class="team-full-name">${esc(t2)}</div>
+            ${scoresHtml(s2arr, t2wins)}
+          </div>
+        </div>
+        ${match.status ? `<div class="hero-status ${heroStatusClass}">${esc(match.status)}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ── SCORECARD TABS ─────────────────────────────────────────────────────────
+function renderScorecardTabs(innings) {
+  if (!innings || !innings.length) { document.getElementById('sc-tabs-area').innerHTML = ''; return; }
+  const tabs = innings.map((inn, i) =>
+    `<button class="sc-tab ${i===activeInning?'active':''}" onclick="switchInning(${i})">${esc(inn.inning || `Innings ${i+1}`)}</button>`
+  ).join('');
+  document.getElementById('sc-tabs-area').innerHTML =
+    `<div class="sc-tabs">${tabs}<button class="sc-tab ${activeInning===innings.length?'active':''}" onclick="switchInning(${innings.length})">Match Info</button></div>`;
+}
+
+function switchInning(idx) {
+  activeInning = idx;
+  const innings = scorecardData?.scorecard || [];
+  renderScorecardTabs(innings);
+  if (idx === innings.length) renderMatchInfo();
+  else renderInning(innings[idx]);
+}
+
+// ── BATTING TABLE ──────────────────────────────────────────────────────────
+function renderBatting(batsmen, extras, total) {
+  if (!batsmen || !batsmen.length) return `<div class="no-data">No batting data available</div>`;
+
+  const rows = batsmen.map(b => {
+    const sr = b.sr || (b.b ? ((b.r/b.b)*100).toFixed(1) : '—');
+    return `<tr>
+      <td><div class="player-name">${esc(b.batsman?.name || '—')}</div><div class="player-note">${esc(b['dismissal-text'] || b.dismissal || 'not out')}</div></td>
+      <td class="bold-num">${b.r ?? '—'}</td>
+      <td class="num">${b.b ?? '—'}</td>
+      <td class="num">${b['4s'] ?? '—'}</td>
+      <td class="num">${b['6s'] ?? '—'}</td>
+      <td class="num">${sr}</td>
+    </tr>`;
+  }).join('');
+
+  const extrasStr = extras ? `B ${extras.b||0}, LB ${extras.lb||0}, W ${extras.w||0}, NB ${extras.nb||0}, P ${extras.p||0}` : '—';
+  const totalStr  = total  ? `${total.r}/${total.w} (${total.o} Ov)` : '—';
+
+  return `
+    <table class="sc-table">
+      <thead><tr>
+        <th>Batter</th><th class="num">R</th><th class="num">B</th>
+        <th class="num">4s</th><th class="num">6s</th><th class="num">SR</th>
+      </tr></thead>
+      <tbody>
+        ${rows}
+        <tr class="extras-row"><td colspan="5">Extras (${extrasStr})</td><td class="num">${extras ? Object.values(extras).reduce((a,b)=>a+(b||0),0) : 0}</td></tr>
+        <tr class="total-row"><td colspan="5"><strong>Total</strong></td><td class="num">${totalStr}</td></tr>
+      </tbody>
+    </table>`;
+}
+
+// ── BOWLING TABLE ──────────────────────────────────────────────────────────
+function renderBowling(bowlers) {
+  if (!bowlers || !bowlers.length) return `<div class="no-data">No bowling data available</div>`;
+
+  const rows = bowlers.map(b => {
+    const econ = b.r && b.o ? (b.r/b.o).toFixed(2) : '—';
+    return `<tr>
+      <td><div class="player-name">${esc(b.bowler?.name || '—')}</div></td>
+      <td class="num">${b.o ?? '—'}</td>
+      <td class="num">${b.m ?? '—'}</td>
+      <td class="num">${b.r ?? '—'}</td>
+      <td class="bold-num">${b.w ?? '—'}</td>
+      <td class="num">${econ}</td>
+      <td class="num">${b.wd ?? 0}</td>
+      <td class="num">${b.nb ?? 0}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <table class="sc-table">
+      <thead><tr>
+        <th>Bowler</th><th class="num">O</th><th class="num">M</th>
+        <th class="num">R</th><th class="num">W</th><th class="num">Econ</th>
+        <th class="num">WD</th><th class="num">NB</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── RENDER INNING ──────────────────────────────────────────────────────────
+function renderInning(inn) {
+  const battingHtml  = renderBatting(inn.batting, inn.extras, inn.total);
+  const bowlingHtml  = renderBowling(inn.bowling);
+  const innTitle     = inn.inning || 'Innings';
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-card fade-in">
+      <div class="section-card-head">
+        <div class="section-card-title">🏏 Batting — ${esc(innTitle)}</div>
+      </div>
+      ${battingHtml}
+    </div>
+    <div class="section-card fade-in">
+      <div class="section-card-head">
+        <div class="section-card-title">🎳 Bowling</div>
+      </div>
+      ${bowlingHtml}
+    </div>`;
+}
+
+// ── MATCH INFO ────────────────────────────────────────────────────────────
+function renderMatchInfo() {
+  const m = matchData;
+  if (!m) return;
+
+  const infoItems = [
+    ['Venue',      m.venue || '—'],
+    ['Date',       m.date  || '—'],
+    ['Match Type', (m.matchType||'—').toUpperCase()],
+    ['Series',     m.series_id ? 'See series page' : '—'],
+    ['Toss',       m.tossWinner ? `${m.tossWinner} won, chose to ${m.tossChoice}` : '—'],
+    ['Umpires',    m.umpires || '—'],
+    ['Match Referee', m.matchReferee || '—'],
+    ['Fantasy',    m.fantasyEnabled ? 'Enabled' : 'Disabled'],
+  ].map(([label, value]) => `
+    <div class="info-item">
+      <div class="info-label">${esc(label)}</div>
+      <div class="info-value">${esc(value)}</div>
+    </div>`).join('');
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-card fade-in">
+      <div class="section-card-head"><div class="section-card-title">Match Information</div></div>
+      <div class="info-grid">${infoItems}</div>
+    </div>`;
+}
+
+// ── LOAD ──────────────────────────────────────────────────────────────────
+async function load() {
+  const id = getMatchId();
+  if (!id) {
+    document.getElementById('content').innerHTML = `
+      <div class="error-box"><h3>No match ID</h3><p>Return to the home page and select a match.</p></div>`;
+    return;
+  }
+
+  // Fetch match info + scorecard in parallel
+  // Use backend if configured, otherwise fall back to direct API
+  const infoUrl = API_BASE !== 'direct'
+    ? `${API_BASE}/api/match/${id}/info`
+    : null;
+  const scUrl   = API_BASE !== 'direct'
+    ? `${API_BASE}/api/match/${id}/scorecard`
+    : null;
+
+  const [infoResp, scResp] = await Promise.allSettled([
+    infoUrl ? fetch(infoUrl).then(r => r.json()) : apiFetch(`${DIRECT_BASE}/match_info?apikey=${API_KEY}&id=${id}`),
+    scUrl   ? fetch(scUrl).then(r => r.json())   : apiFetch(`${DIRECT_BASE}/match_scorecard?apikey=${API_KEY}&id=${id}`),
+  ]);
+
+  matchData     = infoResp.status === 'fulfilled' && infoResp.value ? infoResp.value.data : null;
+  scorecardData = scResp.status  === 'fulfilled' && scResp.value  ? scResp.value.data  : null;
+
+  // Debug: log raw API responses so we can inspect structure
+  console.log('=== match_info response ===',  infoResp.value || infoResp.reason);
+  console.log('=== match_scorecard response ===', scResp.value || scResp.reason);
+  console.log('matchData:', JSON.stringify(matchData, null, 2));
+  console.log('scorecardData:', JSON.stringify(scorecardData, null, 2));
+  if (scorecardData?.scorecard) {
+    console.log('innings count:', scorecardData.scorecard.length);
+    scorecardData.scorecard.forEach((inn, i) => {
+      console.log(`Inning ${i}:`, inn.inning);
+      console.log(`  batting[0]:`, JSON.stringify(inn.batting?.[0], null, 2));
+      console.log(`  bowling[0]:`, JSON.stringify(inn.bowling?.[0], null, 2));
+    });
+  }
+
+  if (!matchData && !scorecardData) {
+    document.getElementById('hero-area').innerHTML = '';
+    document.getElementById('sc-tabs-area').innerHTML = '';
+    document.getElementById('content').innerHTML = `
+      <div class="error-box">
+        <h3>⚠️ Could not load match</h3>
+        <p>The match data is unavailable. It may have expired from the API or your quota may be exhausted.</p>
+        <button class="retry-btn" onclick="load()">Try Again</button>
+      </div>`;
+    return;
+  }
+
+  // Use match_info data first, fall back to scorecard's match info
+  const match = matchData || scorecardData;
+  document.title = `${match.name || 'Match'} — CricLive`;
+  document.getElementById('topbar-title').textContent = match.name || 'Match Detail';
+
+  // Update back link to preserve context
+  document.getElementById('back-link').href = 'index.html';
+
+  renderHero(match, scorecardData);
+
+  const innings = scorecardData?.scorecard || [];
+  renderScorecardTabs(innings);
+
+  if (innings.length > 0) renderInning(innings[0]);
+  else renderMatchInfo();
+}
+
+load();
+</script>
+</body>
+</html>
