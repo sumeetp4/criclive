@@ -273,11 +273,11 @@ function parseTotal(text) {
 }
 
 // ── Parse match info from scorecard page ────────────────────────────────────
-// The scorecard page has toss, venue, umpires, referee in facts-row-grid rows
+// The scorecard page has team names, scores, toss, venue, umpires, referee.
 function parseMatchInfoHtml(html) {
   const $ = cheerio.load(html);
 
-  // Extract key-value pairs from facts-row-grid rows
+  // ── Key-value facts (Toss, Venue, Umpires, Referee) ──────────────────────
   const facts = {};
   $('[class*="facts-row-grid"]').each((_, row) => {
     const label = $(row).find('.font-bold').first().text().trim();
@@ -285,23 +285,85 @@ function parseMatchInfoHtml(html) {
     if (label && value && label !== value) facts[label] = value;
   });
 
-  // SportsEvent schema has structured date and venue
-  let startDate = '';
+  // ── SportsEvent schema → start date + team names from "T1 vs T2, ..." ─────
+  let startDate = '', sportsEventName = '';
   $('script[type="application/ld+json"]').each((_, el) => {
     try {
       const d = JSON.parse($(el).html());
-      if (d['@type'] === 'SportsEvent') startDate = d.startDate || '';
+      if (d['@type'] === 'SportsEvent') {
+        startDate = d.startDate || '';
+        sportsEventName = d.name || '';
+      }
     } catch {}
   });
+  // Parse "Team1 vs Team2" from the event name (before the first comma)
+  const vsMatch = sportsEventName.match(/^(.+?)\s+vs\s+(.+?),/i);
+  const schemaTeam1 = vsMatch ? vsMatch[1].trim() : '';
+  const schemaTeam2 = vsMatch ? vsMatch[2].trim() : '';
 
-  // Toss: "India Women won the toss and opt to Bat"
+  // ── Team names and current scores from innings headers ────────────────────
+  // Each header has id "team-{teamId}-innings-{n}", short name and long name
+  const teams = [], teamInfo = [], score = [];
+  const seenTeams = new Set(), seenHeaders = new Set();
+
+  $('[id^="team-"][id*="-innings-"]').each((_, el) => {
+    const headerId = $(el).attr('id');
+    if (!headerId || seenHeaders.has(headerId)) return;
+    seenHeaders.add(headerId);
+
+    const innNumM = headerId.match(/innings-(\d+)$/);
+    const innNum = innNumM ? innNumM[1] : '1';
+
+    // Short name: first child with "font-bold" (visible on mobile: "tb:hidden font-bold")
+    // Long name: child with "tb:block" in class (shown on tablet/web: "hidden tb:block font-bold")
+    const shortName = $(el).children('[class*="font-bold"]').first().text().trim();
+    const longName  = $(el).children('[class*="tb:block"]').first().text().trim() || shortName;
+
+    if (longName && !seenTeams.has(longName)) {
+      seenTeams.add(longName);
+      teams.push(longName);
+      teamInfo.push({ name: longName, shortname: shortName, img: null });
+    }
+
+    // Score: e.g. "83-3" and " (19 Ov)"
+    const scoreSpan = $(el).find('span').filter('[class*="font-bold"]').first().text().trim();
+    const oversSpan = $(el).find('span').not('[class*="font-bold"]').first().text().replace(/[()]/g, '').trim();
+    const sm = scoreSpan.match(/^(\d+)[-\/](\d+)$/);
+    if (sm) {
+      score.push({
+        inning: `${longName} Inning ${innNum}`,
+        r: +sm[1], w: +sm[2],
+        o: oversSpan.replace(/\s*Ov$/i, '').trim() || null,
+      });
+    }
+  });
+
+  // ── Fill in missing teams from SportsEvent schema ─────────────────────────
+  // Cricbuzz scorecard only shows headers for teams that have batted.
+  // If only one (or zero) teams extracted, use the schema names as fallback.
+  if (schemaTeam1 && schemaTeam2) {
+    if (!teams.includes(schemaTeam1)) {
+      teams.push(schemaTeam1);
+      teamInfo.push({ name: schemaTeam1, shortname: '', img: null });
+    }
+    if (!teams.includes(schemaTeam2)) {
+      teams.push(schemaTeam2);
+      teamInfo.push({ name: schemaTeam2, shortname: '', img: null });
+    }
+  }
+
+  // ── Toss ──────────────────────────────────────────────────────────────────
   const tossText = facts['Toss'] || '';
   const tossWinnerM = tossText.match(/^(.+?)\s+won the toss/i);
   const tossChoiceM = tossText.match(/opt to (\w+)/i);
 
   return {
+    teams,
+    teamInfo,
+    score,
     venue:        facts['Venue'] || '',
     dateTimeGMT:  startDate,
+    status:       tossText,
     tossWinner:   tossWinnerM ? tossWinnerM[1] : '',
     tossChoice:   tossChoiceM ? tossChoiceM[1].toLowerCase() : '',
     umpires:      [facts['Umpires'], facts['3rd Umpire']].filter(Boolean).join(', '),
