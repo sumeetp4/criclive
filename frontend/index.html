@@ -520,18 +520,8 @@ function getEmojiFlag(teamName) {
   return '🏏';
 }
 
-// Called by onerror on team flag images when the CDN blocks the browser load
-function swapImgToEmoji(el, teamName) {
-  const span = document.createElement('span');
-  span.className = 'team-flag-emoji';
-  span.textContent = getEmojiFlag(teamName);
-  el.replaceWith(span);
-}
-
 function teamFlagEl(m, teamName) {
-  const img = teamImg(m, teamName);
-  const safeTeamName = (teamName||'').replace(/'/g, "\\'");
-  if (img) return `<img class="team-flag" src="${img}" alt="${esc(teamName)}" onerror="swapImgToEmoji(this,'${safeTeamName}')">`;
+  // Cricbuzz CDN images are blocked by browsers; use emoji flags for reliability
   return `<span class="team-flag-emoji">${getEmojiFlag(teamName)}</span>`;
 }
 

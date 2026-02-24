@@ -55,8 +55,9 @@ const ENDED_STATES = new Set(['complete', 'result', 'abandoned', 'no result', 'c
 
 function parseState(state = '') {
   const s = state.toLowerCase();
-  const matchEnded   = ENDED_STATES.has(s);
-  const matchStarted = matchEnded || LIVE_STATES.has(s);
+  // Use substring matching so "Tea Break", "Rain Delay", etc. still match
+  const matchEnded   = [...ENDED_STATES].some(es => s.includes(es));
+  const matchStarted = matchEnded || [...LIVE_STATES].some(ls => s.includes(ls));
   return { matchStarted, matchEnded };
 }
 
