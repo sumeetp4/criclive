@@ -309,6 +309,19 @@ function matchStatus(m) {
 }
 
 // ── HERO ──────────────────────────────────────────────────────────────────
+// Extract scores from scorecard innings totals (fresh 30s cache).
+// Falls back to match.score from matchData when scorecard isn't available.
+function heroScoresFor(teamName, scorecard, matchScoreFallback) {
+  const prefix = teamName.toLowerCase().split(' ')[0];
+  const fromSc = (scorecard?.scorecard || [])
+    .filter(inn => inn.total?.r !== undefined &&
+      (inn.inning || '').toLowerCase().startsWith(prefix))
+    .map(inn => ({ inning: inn.inning, r: inn.total.r, w: inn.total.w, o: inn.total.o }));
+  if (fromSc.length) return fromSc;
+  return (matchScoreFallback || []).filter(s =>
+    s.inning && s.inning.toLowerCase().startsWith(prefix));
+}
+
 function renderHero(match, scorecard) {
   const status = matchStatus(match);
   const t1 = match.teams?.[0] || 'Team A';
@@ -318,15 +331,10 @@ function renderHero(match, scorecard) {
     return `<div class="team-logo-placeholder">${getEmojiFlag(name)}</div>`;
   }
 
-  // Innings scores from match.score
-  const scores = match.score || [];
-  function teamScores(teamName) {
-    return scores.filter(s => s.inning && s.inning.toLowerCase().startsWith(teamName.toLowerCase().split(' ')[0].toLowerCase()));
-  }
   function fmtInnings(s) { return `${s.r}/${s.w} <span class="team-overs">(${s.o})</span>`; }
 
-  const s1arr = teamScores(t1);
-  const s2arr = teamScores(t2);
+  const s1arr = heroScoresFor(t1, scorecard, match.score);
+  const s2arr = heroScoresFor(t2, scorecard, match.score);
 
   // Determine winner from status string
   const stLower = (match.status||'').toLowerCase();
@@ -509,6 +517,32 @@ function renderMatchInfo() {
     </div>`;
 }
 
+// ── LIVE AUTO-REFRESH ──────────────────────────────────────────────────────
+let liveTimer = null;
+
+function stopLiveRefresh() {
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+}
+
+function startLiveRefresh(id) {
+  if (liveTimer) return;
+  liveTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/match/${id}/scorecard`);
+      if (!res.ok) return;
+      const j = await res.json();
+      if (!j.data) return;
+      scorecardData = j.data;
+      const match = matchData || scorecardData;
+      renderHero(match, scorecardData);
+      const innings = scorecardData.scorecard || [];
+      renderScorecardTabs(innings);
+      if (activeInning < innings.length) renderInning(innings[activeInning]);
+      if (matchStatus(match) !== 'live') stopLiveRefresh();
+    } catch(e) {}
+  }, 30000);
+}
+
 // ── LOAD ──────────────────────────────────────────────────────────────────
 async function load() {
   const id = getMatchId();
@@ -534,20 +568,6 @@ async function load() {
 
   matchData     = infoResp.status === 'fulfilled' && infoResp.value ? infoResp.value.data : null;
   scorecardData = scResp.status  === 'fulfilled' && scResp.value  ? scResp.value.data  : null;
-
-  // Debug: log raw API responses so we can inspect structure
-  console.log('=== match_info response ===',  infoResp.value || infoResp.reason);
-  console.log('=== match_scorecard response ===', scResp.value || scResp.reason);
-  console.log('matchData:', JSON.stringify(matchData, null, 2));
-  console.log('scorecardData:', JSON.stringify(scorecardData, null, 2));
-  if (scorecardData?.scorecard) {
-    console.log('innings count:', scorecardData.scorecard.length);
-    scorecardData.scorecard.forEach((inn, i) => {
-      console.log(`Inning ${i}:`, inn.inning);
-      console.log(`  batting[0]:`, JSON.stringify(inn.batting?.[0], null, 2));
-      console.log(`  bowling[0]:`, JSON.stringify(inn.bowling?.[0], null, 2));
-    });
-  }
 
   if (!matchData && !scorecardData) {
     document.getElementById('hero-area').innerHTML = '';
@@ -576,6 +596,10 @@ async function load() {
 
   if (innings.length > 0) renderInning(innings[0]);
   else renderMatchInfo();
+
+  // Auto-refresh scorecard + hero every 30s for live matches
+  stopLiveRefresh();
+  if (matchStatus(match) === 'live') startLiveRefresh(id);
 }
 
 load();

@@ -9,7 +9,7 @@ const cricketApi = require('./cricbuzzScraper');
 require('dotenv').config();
 
 const SCORECARD_TTL  = parseInt(process.env.CACHE_SCORECARD_TTL  || '30');
-const MATCH_INFO_TTL = parseInt(process.env.CACHE_MATCH_INFO_TTL || '3600');
+const MATCH_INFO_TTL = parseInt(process.env.CACHE_MATCH_INFO_TTL || '60');
 
 // Helper to send cached or fresh data
 function sendCached(res, key, data, age) {
