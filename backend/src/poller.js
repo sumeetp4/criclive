@@ -5,7 +5,7 @@
 
 const cron      = require('node-cron');
 const cache     = require('./cache');
-const cricketApi = require('./cricketApi');
+const cricketApi = require('./cricbuzzScraper');
 require('dotenv').config();
 
 const LIVE_TTL     = parseInt(process.env.CACHE_CURRENT_TTL  || '30');

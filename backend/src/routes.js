@@ -5,7 +5,7 @@
 const express    = require('express');
 const router     = express.Router();
 const cache      = require('./cache');
-const cricketApi = require('./cricketApi');
+const cricketApi = require('./cricbuzzScraper');
 require('dotenv').config();
 
 const SCORECARD_TTL  = parseInt(process.env.CACHE_SCORECARD_TTL  || '30');
