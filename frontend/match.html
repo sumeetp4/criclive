@@ -232,6 +232,7 @@ const PROXIES    = ['https://corsproxy.io/?', 'https://api.allorigins.win/raw?ur
 
 let matchData     = null;
 let scorecardData = null;
+let liveScoreData = null;   // from /api/match/:id/score — same source as home page
 let activeInning  = 0;
 
 // ── UTILS ──────────────────────────────────────────────────────────────────
@@ -310,10 +311,18 @@ function matchStatus(m) {
 }
 
 // ── HERO ──────────────────────────────────────────────────────────────────
-// Extract scores from scorecard innings totals (fresh 30s cache).
-// Falls back to match.score from matchData when scorecard isn't available.
-function heroScoresFor(teamName, scorecard, matchScoreFallback) {
+// Score priority (highest → lowest freshness):
+//  1. liveScore.score  — from /api/match/:id/score, same poller cache as home page
+//  2. scorecard totals — parsed from Cricbuzz scorecard HTML (30s cache)
+//  3. match.score      — from /api/match/:id/info (60s cache, last resort)
+function heroScoresFor(teamName, liveScore, scorecard, matchScoreFallback) {
   const prefix = teamName.toLowerCase().split(' ')[0];
+
+  if (liveScore?.score?.length) {
+    const fromLive = liveScore.score.filter(s =>
+      s.inning && s.inning.toLowerCase().startsWith(prefix));
+    if (fromLive.length) return fromLive;
+  }
   const fromSc = (scorecard?.scorecard || [])
     .filter(inn => inn.total?.r !== undefined &&
       (inn.inning || '').toLowerCase().startsWith(prefix))
@@ -334,8 +343,8 @@ function renderHero(match, scorecard) {
 
   function fmtInnings(s) { return `${s.r}/${s.w} <span class="team-overs">(${s.o})</span>`; }
 
-  const s1arr = heroScoresFor(t1, scorecard, match.score);
-  const s2arr = heroScoresFor(t2, scorecard, match.score);
+  const s1arr = heroScoresFor(t1, liveScoreData, scorecard, match.score);
+  const s2arr = heroScoresFor(t2, liveScoreData, scorecard, match.score);
 
   // Determine winner from status string
   const stLower = (match.status||'').toLowerCase();
@@ -529,14 +538,22 @@ function startLiveRefresh(id) {
   if (liveTimer) return;
   liveTimer = setInterval(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/match/${id}/scorecard`);
-      if (!res.ok) return;
-      const j = await res.json();
-      if (!j.data) return;
-      scorecardData = j.data;
+      // Fetch live score (poller cache) + scorecard in parallel
+      const [scoreRes, scRes] = await Promise.all([
+        fetch(`${API_BASE}/api/match/${id}/score`),
+        fetch(`${API_BASE}/api/match/${id}/scorecard`),
+      ]);
+      if (scoreRes.ok) {
+        const j = await scoreRes.json();
+        if (j.data) liveScoreData = j.data;
+      }
+      if (scRes.ok) {
+        const j = await scRes.json();
+        if (j.data) scorecardData = j.data;
+      }
       const match = matchData || scorecardData;
       renderHero(match, scorecardData);
-      const innings = scorecardData.scorecard || [];
+      const innings = scorecardData?.scorecard || [];
       renderScorecardTabs(innings);
       if (activeInning < innings.length) renderInning(innings[activeInning]);
       if (matchStatus(match) !== 'live') stopLiveRefresh();
@@ -562,13 +579,15 @@ async function load() {
     ? `${API_BASE}/api/match/${id}/scorecard`
     : null;
 
-  const [infoResp, scResp] = await Promise.allSettled([
+  const [infoResp, scResp, scoreResp] = await Promise.allSettled([
     infoUrl ? fetch(infoUrl).then(r => r.json()) : apiFetch(`${DIRECT_BASE}/match_info?apikey=${API_KEY}&id=${id}`),
     scUrl   ? fetch(scUrl).then(r => r.json())   : apiFetch(`${DIRECT_BASE}/match_scorecard?apikey=${API_KEY}&id=${id}`),
+    API_BASE !== 'direct' ? fetch(`${API_BASE}/api/match/${id}/score`).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
   ]);
 
-  matchData     = infoResp.status === 'fulfilled' && infoResp.value ? infoResp.value.data : null;
-  scorecardData = scResp.status  === 'fulfilled' && scResp.value  ? scResp.value.data  : null;
+  matchData     = infoResp.status  === 'fulfilled' && infoResp.value  ? infoResp.value.data  : null;
+  scorecardData = scResp.status    === 'fulfilled' && scResp.value    ? scResp.value.data    : null;
+  liveScoreData = scoreResp.status === 'fulfilled' && scoreResp.value ? scoreResp.value.data : null;
 
   if (!matchData && !scorecardData) {
     document.getElementById('hero-area').innerHTML = '';

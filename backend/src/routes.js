@@ -57,6 +57,29 @@ router.get('/matches/live', (req, res) => {
   sendCached(res, 'live', live, cache.age('currentMatches'));
 });
 
+// ── GET /api/match/:id/score ──────────────────────────────────────────────
+// Returns the live score from the poller cache — same data source as /api/matches.
+// Used by the match detail page hero so it stays in sync with the home page.
+router.get('/match/:id/score', (req, res) => {
+  const { id } = req.params;
+  const current  = cache.get('currentMatches');
+  const upcoming = cache.get('upcomingMatches');
+  const all = [
+    ...(current?.value?.data  || []),
+    ...(upcoming?.value?.data || []),
+  ];
+  const match = all.find(m => m.id === id);
+  if (!match) {
+    return res.status(404).json({ status: 'error', message: 'Match not found in cache' });
+  }
+  sendCached(res, `score:${id}`, {
+    score:        match.score,
+    status:       match.status,
+    matchStarted: match.matchStarted,
+    matchEnded:   match.matchEnded,
+  }, cache.age('currentMatches'));
+});
+
 // ── GET /api/match/:id/scorecard ──────────────────────────────────────────
 router.get('/match/:id/scorecard', async (req, res) => {
   const { id } = req.params;
