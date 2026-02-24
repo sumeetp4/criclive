@@ -285,7 +285,7 @@ function parseMatchInfoHtml(html) {
     if (label && value && label !== value) facts[label] = value;
   });
 
-  // ── SportsEvent schema → start date + team names from "T1 vs T2, ..." ─────
+  // ── SportsEvent schema → start date, team names, match type, series ────────
   let startDate = '', sportsEventName = '';
   $('script[type="application/ld+json"]').each((_, el) => {
     try {
@@ -296,10 +296,33 @@ function parseMatchInfoHtml(html) {
       }
     } catch {}
   });
-  // Parse "Team1 vs Team2" from the event name (before the first comma)
+
+  // "Australia Women vs India Women, 1st ODI, India Women tour of Australia, 2026 - ..."
+  // schemaTeam1, schemaTeam2 from "T1 vs T2"
   const vsMatch = sportsEventName.match(/^(.+?)\s+vs\s+(.+?),/i);
   const schemaTeam1 = vsMatch ? vsMatch[1].trim() : '';
   const schemaTeam2 = vsMatch ? vsMatch[2].trim() : '';
+
+  // matchDesc = "1st ODI", "Final", "44th Match", etc. → extract format
+  const descM = sportsEventName.match(/vs .+?,\s*(.+?),/i);
+  const matchDesc = descM ? descM[1].trim() : '';
+  const fmtM = matchDesc.match(/\b(test|odi|t20i?|t10|hundred|fc|list\s*a)\b/i);
+  const matchType = fmtM ? fmtM[1].toLowerCase().replace(/\s+/g, '') : '';
+
+  // seriesName = 3rd comma-separated segment, stripped of trailing " - Live..."
+  const seriesM = sportsEventName.match(/vs .+?, .+?,\s*(.+?)(?:\s+-\s+|$)/i);
+  const seriesName = seriesM ? seriesM[1].trim() : '';
+
+  // Human-readable date from startDate ISO string
+  let date = '';
+  if (startDate) {
+    try {
+      date = new Date(startDate).toLocaleDateString('en-IN', {
+        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+      }) + ' IST';
+    } catch {}
+  }
 
   // ── Team names and current scores from innings headers ────────────────────
   // Each header has id "team-{teamId}-innings-{n}", short name and long name
@@ -361,6 +384,9 @@ function parseMatchInfoHtml(html) {
     teams,
     teamInfo,
     score,
+    matchType,
+    seriesName,
+    date,
     venue:        facts['Venue'] || '',
     dateTimeGMT:  startDate,
     status:       tossText,

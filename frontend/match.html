@@ -368,10 +368,18 @@ function renderHero(match, scorecard) {
 }
 
 // ── SCORECARD TABS ─────────────────────────────────────────────────────────
+function innTabLabel(inning, matchType) {
+  // For Test matches keep "India Women Inning 1 / 2"; for all others show just team name
+  const isTest = (matchType || '').toLowerCase() === 'test';
+  if (isTest) return inning;
+  return inning.replace(/\s+Inning\s+\d+$/i, '').trim() || inning;
+}
+
 function renderScorecardTabs(innings) {
   if (!innings || !innings.length) { document.getElementById('sc-tabs-area').innerHTML = ''; return; }
+  const mt = matchData?.matchType || '';
   const tabs = innings.map((inn, i) =>
-    `<button class="sc-tab ${i===activeInning?'active':''}" onclick="switchInning(${i})">${esc(inn.inning || `Innings ${i+1}`)}</button>`
+    `<button class="sc-tab ${i===activeInning?'active':''}" onclick="switchInning(${i})">${esc(innTabLabel(inn.inning || `Innings ${i+1}`, mt))}</button>`
   ).join('');
   document.getElementById('sc-tabs-area').innerHTML =
     `<div class="sc-tabs">${tabs}<button class="sc-tab ${activeInning===innings.length?'active':''}" onclick="switchInning(${innings.length})">Match Info</button></div>`;
@@ -474,14 +482,13 @@ function renderMatchInfo() {
   if (!m) return;
 
   const infoItems = [
-    ['Venue',      m.venue || '—'],
-    ['Date',       m.date  || '—'],
-    ['Match Type', (m.matchType||'—').toUpperCase()],
-    ['Series',     m.series_id ? 'See series page' : '—'],
-    ['Toss',       m.tossWinner ? `${m.tossWinner} won, chose to ${m.tossChoice}` : '—'],
-    ['Umpires',    m.umpires || '—'],
+    ['Venue',         m.venue || '—'],
+    ['Date',          m.date || (m.dateTimeGMT ? new Date(m.dateTimeGMT).toLocaleDateString('en-IN', {weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}) + ' IST' : '—')],
+    ['Match Type',    (m.matchType||'—').toUpperCase()],
+    ['Series',        m.seriesName || m.name || '—'],
+    ['Toss',          m.tossWinner ? `${m.tossWinner} won, chose to ${m.tossChoice}` : '—'],
+    ['Umpires',       m.umpires || '—'],
     ['Match Referee', m.matchReferee || '—'],
-    ['Fantasy',    m.fantasyEnabled ? 'Enabled' : 'Disabled'],
   ].map(([label, value]) => `
     <div class="info-item">
       <div class="info-label">${esc(label)}</div>
