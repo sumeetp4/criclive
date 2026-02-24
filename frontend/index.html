@@ -205,9 +205,6 @@
   .quota-fill.danger { background: var(--red); }
   .quota-num { font-family: 'JetBrains Mono', monospace; color: var(--text); font-size: 11px; }
 
-  .api-footer { text-align: center; padding: 24px 16px 32px; font-size: 11px; color: var(--muted); }
-  .api-footer a { color: var(--accent); text-decoration: none; }
-
   @media (max-width: 600px) {
     .topbar { padding: 0 14px; }
     .page { padding: 12px 10px; }
@@ -288,7 +285,6 @@
   </div>
 </div>
 
-<div class="api-footer">Powered by <a href="https://cricketdata.org" target="_blank">CricketData.org</a> · Use Refresh to update scores</div>
 
 <script>
 // ── API CONFIG ────────────────────────────────────────────────────────────
@@ -508,22 +504,35 @@ function teamImg(m, teamName) {
   return null;
 }
 
+const EMOJI_FLAGS = {
+  'india':'🇮🇳','australia':'🇦🇺','england':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','pakistan':'🇵🇰',
+  'south africa':'🇿🇦','new zealand':'🇳🇿','west indies':'🌴','sri lanka':'🇱🇰',
+  'bangladesh':'🇧🇩','afghanistan':'🇦🇫','zimbabwe':'🇿🇼','ireland':'🇮🇪',
+  'netherlands':'🇳🇱','scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','oman':'🇴🇲','uae':'🇦🇪',
+  'italy':'🇮🇹','canada':'🇨🇦',
+};
+
+function getEmojiFlag(teamName) {
+  const lower = (teamName||'').toLowerCase();
+  for (const [k,v] of Object.entries(EMOJI_FLAGS)) {
+    if (lower.includes(k)) return v;
+  }
+  return '🏏';
+}
+
+// Called by onerror on team flag images when the CDN blocks the browser load
+function swapImgToEmoji(el, teamName) {
+  const span = document.createElement('span');
+  span.className = 'team-flag-emoji';
+  span.textContent = getEmojiFlag(teamName);
+  el.replaceWith(span);
+}
+
 function teamFlagEl(m, teamName) {
   const img = teamImg(m, teamName);
-  if (img) return `<img class="team-flag" src="${img}" alt="${esc(teamName)}" onerror="this.style.display='none'">`;
-  // Emoji fallback
-  const flags = {
-    'india':'🇮🇳','australia':'🇦🇺','england':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','pakistan':'🇵🇰',
-    'south africa':'🇿🇦','new zealand':'🇳🇿','west indies':'🌴','sri lanka':'🇱🇰',
-    'bangladesh':'🇧🇩','afghanistan':'🇦🇫','zimbabwe':'🇿🇼','ireland':'🇮🇪',
-    'netherlands':'🇳🇱','scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','oman':'🇴🇲','uae':'🇦🇪',
-    'italy':'🇮🇹','canada':'🇨🇦','west indies women':'🌴',
-  };
-  const lower = (teamName||'').toLowerCase();
-  for (const [k,v] of Object.entries(flags)) {
-    if (lower.includes(k)) return `<span class="team-flag-emoji">${v}</span>`;
-  }
-  return `<span class="team-flag-emoji">🏏</span>`;
+  const safeTeamName = (teamName||'').replace(/'/g, "\\'");
+  if (img) return `<img class="team-flag" src="${img}" alt="${esc(teamName)}" onerror="swapImgToEmoji(this,'${safeTeamName}')">`;
+  return `<span class="team-flag-emoji">${getEmojiFlag(teamName)}</span>`;
 }
 
 function esc(s) {

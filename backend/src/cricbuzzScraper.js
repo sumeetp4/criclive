@@ -68,27 +68,30 @@ function teamImg(imageId) {
 
 // ── Build score array from matchScore object ────────────────────────────────
 function buildScores(matchInfo, matchScore) {
-  if (!matchScore) return [];
   const scores = [];
   const t1Name = matchInfo.team1?.teamName || '';
   const t2Name = matchInfo.team2?.teamName || '';
 
-  for (const [key, innObj] of Object.entries(matchScore.team1Score || {})) {
+  // Cricbuzz may put scores in matchScore OR inline in matchInfo — try both
+  const t1Score = matchScore?.team1Score || matchInfo?.team1Score;
+  const t2Score = matchScore?.team2Score || matchInfo?.team2Score;
+
+  for (const [key, innObj] of Object.entries(t1Score || {})) {
     if (!innObj) continue;
     scores.push({
       inning: `${t1Name} Inning ${innObj.inningsId || 1}`,
-      r: innObj.runs,
-      w: innObj.wickets,
-      o: innObj.overs,
+      r: innObj.runs  ?? innObj.r,
+      w: innObj.wickets ?? innObj.w,
+      o: innObj.overs ?? innObj.o,
     });
   }
-  for (const [key, innObj] of Object.entries(matchScore.team2Score || {})) {
+  for (const [key, innObj] of Object.entries(t2Score || {})) {
     if (!innObj) continue;
     scores.push({
       inning: `${t2Name} Inning ${innObj.inningsId || 1}`,
-      r: innObj.runs,
-      w: innObj.wickets,
-      o: innObj.overs,
+      r: innObj.runs  ?? innObj.r,
+      w: innObj.wickets ?? innObj.w,
+      o: innObj.overs ?? innObj.o,
     });
   }
   return scores;
