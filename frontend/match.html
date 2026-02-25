@@ -67,6 +67,16 @@
     transition: all 0.2s; flex-shrink: 0;
   }
   .theme-toggle:hover { border-color: var(--accent); }
+  .refresh-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    padding: 6px 12px; border-radius: 8px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--text); }
+  .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .refresh-btn.spinning .icon { display: inline-block; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ── HERO ── */
   .hero {
@@ -196,6 +206,7 @@
     <div class="logo-text"><span class="logo-cric">Cric</span><span class="logo-live">Live</span></div>
   </a>
   <div class="topbar-title" id="topbar-title">Loading match...</div>
+  <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()" title="Refresh match data"><span class="icon">↻</span> Refresh</button>
   <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"><span id="theme-icon">☀️</span></button>
 </header>
 
@@ -527,38 +538,28 @@ function renderMatchInfo() {
     </div>`;
 }
 
-// ── LIVE AUTO-REFRESH ──────────────────────────────────────────────────────
-let liveTimer = null;
-
-function stopLiveRefresh() {
-  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
-}
-
-function startLiveRefresh(id) {
-  if (liveTimer) return;
-  liveTimer = setInterval(async () => {
-    try {
-      // Fetch live score (poller cache) + scorecard in parallel
-      const [scoreRes, scRes] = await Promise.all([
-        fetch(`${API_BASE}/api/match/${id}/score`),
-        fetch(`${API_BASE}/api/match/${id}/scorecard`),
-      ]);
-      if (scoreRes.ok) {
-        const j = await scoreRes.json();
-        if (j.data) liveScoreData = j.data;
-      }
-      if (scRes.ok) {
-        const j = await scRes.json();
-        if (j.data) scorecardData = j.data;
-      }
-      const match = matchData || scorecardData;
-      renderHero(match, scorecardData);
-      const innings = scorecardData?.scorecard || [];
-      renderScorecardTabs(innings);
-      if (activeInning < innings.length) renderInning(innings[activeInning]);
-      if (matchStatus(match) !== 'live') stopLiveRefresh();
-    } catch(e) {}
-  }, 30000);
+// ── MANUAL REFRESH ──────────────────────────────────────────────────────────
+async function manualRefresh() {
+  const id  = getMatchId();
+  if (!id) return;
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  btn.disabled = true;
+  try {
+    const [scoreRes, scRes] = await Promise.all([
+      fetch(`${API_BASE}/api/match/${id}/score`),
+      fetch(`${API_BASE}/api/match/${id}/scorecard`),
+    ]);
+    if (scoreRes.ok) { const j = await scoreRes.json(); if (j.data) liveScoreData = j.data; }
+    if (scRes.ok)    { const j = await scRes.json();    if (j.data) scorecardData = j.data; }
+    const match = matchData || scorecardData;
+    renderHero(match, scorecardData);
+    const innings = scorecardData?.scorecard || [];
+    renderScorecardTabs(innings);
+    if (activeInning < innings.length) renderInning(innings[activeInning]);
+  } catch(e) {}
+  btn.classList.remove('spinning');
+  btn.disabled = false;
 }
 
 // ── LOAD ──────────────────────────────────────────────────────────────────
@@ -617,9 +618,6 @@ async function load() {
   if (innings.length > 0) renderInning(innings[0]);
   else renderMatchInfo();
 
-  // Auto-refresh scorecard + hero every 30s for live matches
-  stopLiveRefresh();
-  if (matchStatus(match) === 'live') startLiveRefresh(id);
 }
 
 load();

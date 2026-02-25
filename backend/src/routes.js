@@ -6,6 +6,7 @@ const express    = require('express');
 const router     = express.Router();
 const cache      = require('./cache');
 const cricketApi = require('./cricbuzzScraper');
+const poller     = require('./poller');
 require('dotenv').config();
 
 const SCORECARD_TTL  = parseInt(process.env.CACHE_SCORECARD_TTL  || '30');
@@ -19,15 +20,25 @@ function sendCached(res, key, data, age) {
 }
 
 // ── GET /api/matches ───────────────────────────────────────────────────────
-// Returns merged current + upcoming matches (served from cache)
-router.get('/matches', (req, res) => {
-  const current  = cache.get('currentMatches');
-  const upcoming = cache.get('upcomingMatches');
+// Returns merged current + upcoming matches — fetches on-demand if cache is stale
+router.get('/matches', async (req, res) => {
+  let current  = cache.get('currentMatches');
+  let upcoming = cache.get('upcomingMatches');
+
+  // Fetch on-demand if cache has expired
+  const fetches = [];
+  if (!current)  fetches.push(poller.fetchCurrentMatches().catch(() => {}));
+  if (!upcoming) fetches.push(poller.fetchUpcomingMatches().catch(() => {}));
+  if (fetches.length) {
+    await Promise.all(fetches);
+    current  = cache.get('currentMatches');
+    upcoming = cache.get('upcomingMatches');
+  }
 
   if (!current && !upcoming) {
     return res.status(503).json({
       status: 'error',
-      message: 'Match data not yet available — server is warming up, try again in a few seconds.',
+      message: 'Match data unavailable — the data source may be temporarily down.',
     });
   }
 
@@ -46,9 +57,12 @@ router.get('/matches', (req, res) => {
 });
 
 // ── GET /api/matches/live ─────────────────────────────────────────────────
-// Returns only live matches
-router.get('/matches/live', (req, res) => {
-  const current = cache.get('currentMatches');
+// Returns only live matches — fetches on-demand if cache is stale
+router.get('/matches/live', async (req, res) => {
+  let current = cache.get('currentMatches');
+  if (!current) {
+    try { await poller.fetchCurrentMatches(); current = cache.get('currentMatches'); } catch(e) {}
+  }
   if (!current) return res.status(503).json({ status: 'error', message: 'Not ready yet' });
 
   const live = (current.value?.data || []).filter(
@@ -58,12 +72,18 @@ router.get('/matches/live', (req, res) => {
 });
 
 // ── GET /api/match/:id/score ──────────────────────────────────────────────
-// Returns the live score from the poller cache — same data source as /api/matches.
+// Returns the live score — fetches on-demand if cache is stale.
 // Used by the match detail page hero so it stays in sync with the home page.
-router.get('/match/:id/score', (req, res) => {
+router.get('/match/:id/score', async (req, res) => {
   const { id } = req.params;
-  const current  = cache.get('currentMatches');
-  const upcoming = cache.get('upcomingMatches');
+  let current  = cache.get('currentMatches');
+  let upcoming = cache.get('upcomingMatches');
+
+  // Fetch on-demand if both caches are stale
+  if (!current) {
+    try { await poller.fetchCurrentMatches(); current = cache.get('currentMatches'); } catch(e) {}
+  }
+
   const all = [
     ...(current?.value?.data  || []),
     ...(upcoming?.value?.data || []),
@@ -120,8 +140,7 @@ router.get('/match/:id/info', async (req, res) => {
 
 // ── GET /api/health ───────────────────────────────────────────────────────
 router.get('/health', (req, res) => {
-  const { start, status } = require('./poller');
-  const pollerStatus = status();
+  const pollerStatus = poller.status();
   res.json({
     status: 'ok',
     uptime: Math.floor(process.uptime()),
